@@ -13,11 +13,11 @@ def fetch_datasets(output_file: str, num_samples: int = 500):
     # Let's use the 'allenai/c4' dataset for English and 'ai4bharat/IndicParaphrase' or similar simple text for Hindi.
     # The simplest working streamable text datasets with hi and en splits are wikipedia extracts or cc100.
     # Dataset configurations for OCI deployment
+    # Mozilla Common Voice has moved to Mozilla Data Collective and their HF repos are empty/removed.
+    # Using `librispeech_asr` and `google/xtreme_s` which are standard, accessible text/audio datasets.
     dataset_configs = [
-        ("mozilla-foundation/common_voice_11_0", "hi", "train"),
-        ("mozilla-foundation/common_voice_11_0", "en", "train"),
-        ("google/fleurs", "hi_in", "train"),
-        ("google/fleurs", "en_us", "train"),
+        ("librispeech_asr", "clean", "train.100"),
+        ("google/xtreme_s", "minds14.hi-IN", "train"),
     ]
 
     samples_collected = 0
@@ -37,11 +37,10 @@ def fetch_datasets(output_file: str, num_samples: int = 500):
                     if i >= samples_to_take or samples_collected >= num_samples:
                         break
                     
-                    # Extract the text
-                    text = sample.get('sentence') or sample.get('transcription') or sample.get('raw_transcription') or sample.get('text')
+                    # Extract the text (different datasets use different keys)
+                    text = sample.get('text') or sample.get('transcription') or sample.get('english_transcription') or sample.get('sentence')
                     
                     # Store audio array directly as a list to save in JSONL
-                    # Note: this will make the JSONL large, but it satisfies the constraints of the single file
                     audio_data = sample.get('audio', {})
                     audio_array = audio_data.get('array')
                     sampling_rate = audio_data.get('sampling_rate')
