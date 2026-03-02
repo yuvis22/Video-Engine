@@ -1,6 +1,6 @@
 faster-whisper
 moviepy
-datasets
+datasets==2.19.1
 transformers
 peft
 accelerate

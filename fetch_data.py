@@ -26,9 +26,8 @@ def fetch_datasets(output_file: str, num_samples: int = 50000):
                 
             print(f"Downloading {repo_id} ({config_name} - {split}) locally to avoid stream thread crash...")
             try:
-                # `trust_remote_code=True` removed because newer Hugging Face `datasets` versions completely obsolete it
-                # and throw hard errors if passed.
-                ds = load_dataset(repo_id, config_name, split=split)
+                # Restoring trust_remote_code=True because we are downgrading the datasets library back to stable v2
+                ds = load_dataset(repo_id, config_name, split=split, trust_remote_code=True)
                 
                 # Resample cleanly to 16kHz (Whisper standard)
                 ds = ds.cast_column("audio", Audio(sampling_rate=16000))
