@@ -1,0 +1,6 @@
+faster-whisper
+moviepy
+datasets
+transformers
+peft
+accelerate

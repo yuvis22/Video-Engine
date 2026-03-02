@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+.env
+data/*
+!data/mini_train.jsonl
+input_queue/*
+!input_queue/.gitkeep
+output_results/*
+!output_results/.gitkeep
+*.mp4
+*.srt
+.DS_Store
