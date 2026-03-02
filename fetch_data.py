@@ -13,9 +13,10 @@ def fetch_datasets(output_file: str, num_samples: int = 500):
     # Let's use the 'allenai/c4' dataset for English and 'ai4bharat/IndicParaphrase' or similar simple text for Hindi.
     # The simplest working streamable text datasets with hi and en splits are wikipedia extracts or cc100.
     # Dataset configurations for OCI deployment
-    # Using text-only dataset to bypass `torchcodec` and PyGILState Linux audio decoding crash
+    # Using the absolute latest Common Voice release available
     dataset_configs = [
-        ("tatoeba", "en-hi", "train"),
+        ("mozilla-foundation/common_voice_17_0", "hi", "train"),
+        ("mozilla-foundation/common_voice_17_0", "en", "train"),
     ]
 
     samples_collected = 0
@@ -36,33 +37,23 @@ def fetch_datasets(output_file: str, num_samples: int = 500):
                         break
                     
                     # Extract the text
-                    translation = sample.get('translation', {})
-                    text_en = translation.get('en')
-                    text_hi = translation.get('hi')
+                    text = sample.get('sentence') or sample.get('text')
                     
-                    if text_en and text_hi:
-                        # Write EN
-                        record_en = {
+                    # Store audio array directly as a list to save in JSONL
+                    audio_data = sample.get('audio', {})
+                    audio_array = audio_data.get('array')
+                    sampling_rate = audio_data.get('sampling_rate')
+                    
+                    if text and audio_array is not None:
+                        record = {
                             "dataset": repo_id,
-                            "language": "en",
-                            "text": text_en,
-                            "audio_array": [], # Mock audio array so train script doesn't crash
-                            "sampling_rate": 16000
+                            "language": config_name,
+                            "text": text,
+                            "audio_array": audio_array.tolist() if hasattr(audio_array, 'tolist') else list(audio_array),
+                            "sampling_rate": sampling_rate
                         }
-                        f.write(json.dumps(record_en, ensure_ascii=False) + "\n")
+                        f.write(json.dumps(record, ensure_ascii=False) + "\n")
                         samples_collected += 1
-                        
-                        if samples_collected < num_samples:
-                            # Write HI
-                            record_hi = {
-                                "dataset": repo_id,
-                                "language": "hi",
-                                "text": text_hi,
-                                "audio_array": [],
-                                "sampling_rate": 16000
-                            }
-                            f.write(json.dumps(record_hi, ensure_ascii=False) + "\n")
-                            samples_collected += 1
             except Exception as e:
                 print(f"Error loading {repo_id} ({config_name}): {e}")
 
