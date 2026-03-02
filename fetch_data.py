@@ -1,6 +1,6 @@
 import json
 import os
-from datasets import load_dataset
+from datasets import load_dataset, Audio
 
 def fetch_datasets(output_file: str, num_samples: int = 500):
     output_dir = os.path.dirname(output_file)
@@ -13,10 +13,10 @@ def fetch_datasets(output_file: str, num_samples: int = 500):
     # Let's use the 'allenai/c4' dataset for English and 'ai4bharat/IndicParaphrase' or similar simple text for Hindi.
     # The simplest working streamable text datasets with hi and en splits are wikipedia extracts or cc100.
     # Dataset configurations for OCI deployment
-    # Using the absolute latest Common Voice release available
+    # Using PolyAI/minds14 which is fully accessible and small enough to avoid streaming thread crashes
     dataset_configs = [
-        ("mozilla-foundation/common_voice_17_0", "hi", "train"),
-        ("mozilla-foundation/common_voice_17_0", "en", "train"),
+        ("PolyAI/minds14", "en-US", "train"),
+        ("PolyAI/minds14", "hi-IN", "train"),
     ]
 
     samples_collected = 0
@@ -25,10 +25,14 @@ def fetch_datasets(output_file: str, num_samples: int = 500):
             if samples_collected >= num_samples:
                 break
                 
-            print(f"Streaming from {repo_id} ({config_name} - {split})...")
+            print(f"Downloading {repo_id} ({config_name} - {split}) locally to avoid stream thread crash...")
             try:
-                # `trust_remote_code=True` required for some gated/script-based datasets
-                ds = load_dataset(repo_id, config_name, split=split, streaming=True, trust_remote_code=True)
+                # `trust_remote_code=True` required for some datasets
+                # Removed `streaming=True` to fix fatal PyGILState_Release thread error on Linux
+                ds = load_dataset(repo_id, config_name, split=split, trust_remote_code=True)
+                
+                # Resample cleanly to 16kHz (Whisper standard)
+                ds = ds.cast_column("audio", Audio(sampling_rate=16000))
                 
                 samples_to_take = num_samples // len(dataset_configs)
                 
@@ -37,7 +41,7 @@ def fetch_datasets(output_file: str, num_samples: int = 500):
                         break
                     
                     # Extract the text
-                    text = sample.get('sentence') or sample.get('text')
+                    text = sample.get('transcription') or sample.get('sentence') or sample.get('text')
                     
                     # Store audio array directly as a list to save in JSONL
                     audio_data = sample.get('audio', {})
