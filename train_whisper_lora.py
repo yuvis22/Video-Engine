@@ -60,9 +60,9 @@ def train():
     model = get_peft_model(model, config)
     model.print_trainable_parameters()
 
-    # Load local JSONL dataset
-    print("Loading local JSONL dataset...")
-    data_path = "./data/mini_train.jsonl"
+    # Load massive JSONL dataset
+    print("Loading massive JSONL dataset for deep training...")
+    data_path = "./data/massive_train.jsonl"
     try:
         data = []
         with open(data_path, 'r', encoding='utf-8') as f:
@@ -83,18 +83,18 @@ def train():
     
     training_args = Seq2SeqTrainingArguments(
         output_dir="./lora_whisper_output",
-        per_device_train_batch_size=4,
-        gradient_accumulation_steps=1,
+        per_device_train_batch_size=8, # Utilizing full 24GB RAM
+        gradient_accumulation_steps=2,
         learning_rate=1e-3,
-        warmup_steps=50,
-        max_steps=100, # Small run for testing
+        warmup_steps=500,
+        max_steps=5000, # Massive long-run high-accuracy training
         gradient_checkpointing=True,
         fp16=False, # CPU doesn't support fp16 training efficiently, keep false
-        evaluation_strategy="no", # Disable for purely training test
+        evaluation_strategy="no", 
         predict_with_generate=True,
         generation_max_length=225,
-        save_steps=50,
-        logging_steps=10,
+        save_steps=500,
+        logging_steps=50,
         report_to=["none"], # Disable wandb/tensorboard for clean run
         use_cpu=True # Explicitly force CPU
     )

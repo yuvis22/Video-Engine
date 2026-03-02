@@ -2,7 +2,7 @@ import json
 import os
 from datasets import load_dataset, Audio
 
-def fetch_datasets(output_file: str, num_samples: int = 500):
+def fetch_datasets(output_file: str, num_samples: int = 50000):
     output_dir = os.path.dirname(output_file)
     os.makedirs(output_dir, exist_ok=True)
     
@@ -12,11 +12,10 @@ def fetch_datasets(output_file: str, num_samples: int = 500):
     # WMT16 or similar translation datasets provide clean text pairs. Let's use `opus_wikipedia` or just take English and Hindi from a common text corpus.
     # Let's use the 'allenai/c4' dataset for English and 'ai4bharat/IndicParaphrase' or similar simple text for Hindi.
     # The simplest working streamable text datasets with hi and en splits are wikipedia extracts or cc100.
-    # Dataset configurations for OCI deployment
-    # Using PolyAI/minds14 which is fully accessible and small enough to avoid streaming thread crashes
+    # Massive accurate datasets for high efficiency training
     dataset_configs = [
-        ("PolyAI/minds14", "en-US", "train"),
-        ("PolyAI/minds14", "hi-IN", "train"),
+        ("librispeech_asr", "clean", "train.360"), # 360 hours of extremely clean English
+        ("google/xtreme_s", "minds14.hi-IN", "train"), # Clean Hindi speech
     ]
 
     samples_collected = 0
@@ -64,5 +63,6 @@ def fetch_datasets(output_file: str, num_samples: int = 500):
     print(f"Data fetching complete. Saved {samples_collected} samples to {output_file}.")
 
 if __name__ == "__main__":
-    output_path = os.path.join(os.path.dirname(__file__), "data", "mini_train.jsonl")
-    fetch_datasets(output_path, 500)
+    # Save the huge target text/audio array JSONL to data folder
+    output_path = os.path.join(os.path.dirname(__file__), "data", "massive_train.jsonl")
+    fetch_datasets(output_path, 50000)
