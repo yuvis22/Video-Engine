@@ -15,7 +15,7 @@ def fetch_datasets(output_file: str, num_samples: int = 50000):
     # Massive accurate datasets for high efficiency training
     dataset_configs = [
         ("librispeech_asr", "clean", "train.360"), # 360 hours of extremely clean English
-        ("google/xtreme_s", "minds14.hi-IN", "train"), # Clean Hindi speech
+        ("google/xtreme_s", "fleurs.hi_in", "train"), # Clean Hindi speech
     ]
 
     samples_collected = 0
