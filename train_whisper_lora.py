@@ -113,7 +113,7 @@ def train():
         model=model,
         train_dataset=dataset,
         data_collator=data_collator,
-        tokenizer=processor.feature_extractor,
+        processing_class=processor.feature_extractor,
     )
 
     if len(dataset) > 0:
