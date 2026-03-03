@@ -125,3 +125,6 @@ def train():
         print("\n🎉 TRAINING COMPLETELY FINISHED! AI Saved to ./lora_whisper_output! 🎉")
     else:
         print("\nDataset missing or empty. Skipping AI start.")
+
+if __name__ == "__main__":
+    train()
