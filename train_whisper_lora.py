@@ -99,7 +99,7 @@ def train():
         max_steps=5000, # Massive long-run high-accuracy training
         gradient_checkpointing=True,
         fp16=False, # CPU doesn't support fp16 training efficiently, keep false
-        evaluation_strategy="no", 
+        eval_strategy="no", 
         predict_with_generate=True,
         generation_max_length=225,
         save_steps=500,
