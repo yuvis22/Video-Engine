@@ -1,6 +1,6 @@
 import json
 import torch
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 from transformers import (
     WhisperForConditionalGeneration, 
     WhisperProcessor, 
@@ -42,12 +42,20 @@ def prepare_dataset(batch, processor):
     return batch
 
 def train():
-    print("Setting up Whisper LoRA fine-tuning for CPU...")
+    print("========================================")
+    print("STEP 1: Initializing Whisper LoRA Pipeline")
+    print("========================================")
     model_id = "openai/whisper-tiny"
     
+    print(f"Loading Processor for {model_id} (Language: Hindi)...")
     processor = WhisperProcessor.from_pretrained(model_id, language="hindi", task="transcribe")
+    
+    print(f"Loading Base Model {model_id} (Strict CPU Mode)...")
     model = WhisperForConditionalGeneration.from_pretrained(model_id)
     
+    print("\n========================================")
+    print("STEP 2: Configuring LoRA Adapters")
+    print("========================================")
     # Configure LoRA
     config = LoraConfig(
         r=8, 
@@ -58,22 +66,23 @@ def train():
     )
     
     model = get_peft_model(model, config)
+    print("LoRA Network Ready!")
     model.print_trainable_parameters()
 
-    # Load massive JSONL dataset
-    print("Loading massive JSONL dataset for deep training...")
+    print("\n========================================")
+    print("STEP 3: Loading Massive JSONL Dataset")
+    print("========================================")
     data_path = "./data/massive_train.jsonl"
     try:
-        data = []
-        with open(data_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                data.append(json.loads(line))
+        print("Memory Safety Enabled: Using Arrow mmap loading to bypass 24GB RAM limit crash...")
+        dataset = load_dataset("json", data_files=data_path, split="train")
+        print(f"SUCCESS: Loaded {len(dataset)} speech array items securely into memory!")
         
-        dataset = Dataset.from_list(data)
-        
-        # Prepare the dataset for training
-        print("Preparing dataset (extracting features)...")
+        print("\n========================================")
+        print("STEP 4: Extracting Whisper Math Audio Features (This will take a while...)")
+        print("========================================")
         dataset = dataset.map(lambda x: prepare_dataset(x, processor), remove_columns=dataset.column_names)
+        print("SUCCESS: Complete Audio Dataset perfectly extracted and tokenized!")
     except Exception as e:
         print(f"Warning: Could not load dataset fully. {e}")
         # Initialize an empty dataset for validation structural checks if missing
@@ -108,8 +117,11 @@ def train():
     )
 
     if len(dataset) > 0:
-        print("Starting training loop...")
+        print("\n========================================")
+        print("STEP 5: INITIATING LORA FINE-TUNING LOOP 🔥")
+        print("========================================")
+        print("Trainer is firing up. Hang tight, loss curves are coming...")
         trainer.train()
-        print("Training complete!")
+        print("\n🎉 TRAINING COMPLETELY FINISHED! AI Saved to ./lora_whisper_output! 🎉")
     else:
-        print("Dataset empty or missing. Skipping actual `trainer.train()`. Deployment structure is verified.")
+        print("\nDataset missing or empty. Skipping AI start.")
