@@ -14,12 +14,11 @@ def fetch_datasets(output_file: str, num_samples: int = 50000):
     # The simplest working streamable text datasets with hi and en splits are wikipedia extracts or cc100.
     # Massive accurate datasets for high efficiency training
     dataset_configs = [
-        ("librispeech_asr", "clean", "train.360"), # 360 hours of extremely clean English
-        ("google/xtreme_s", "fleurs.hi_in", "train"), # Clean Hindi speech
+        ("google/xtreme_s", "fleurs.hi_in", "train"), # Clean Hindi speech ONLY to append
     ]
 
     samples_collected = 0
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, 'a', encoding='utf-8') as f: # APPEND MODE to keep existing English data!
         for repo_id, config_name, split in dataset_configs:
             if samples_collected >= num_samples:
                 break
