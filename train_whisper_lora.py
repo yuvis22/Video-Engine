@@ -70,42 +70,59 @@ def train():
     model.print_trainable_parameters()
 
     print("\n========================================")
-    print("STEP 3: Loading Massive JSONL Dataset")
+    print("STEP 3: Streaming Massive Dataset Live from HuggingFace")
     print("========================================")
-    data_path = "./data/massive_train.jsonl"
+    
     try:
-        print("Memory Safety Enabled: Using Arrow mmap loading to bypass 24GB RAM limit crash...")
-        dataset = load_dataset("json", data_files=data_path, split="train")
-        print(f"SUCCESS: Loaded {len(dataset)} speech array items securely into memory!")
+        print("Storage Bypass Enabled: Streaming dataset live to prevent 200GB disk crash...")
         
+        # Stream the dataset directly from HF!
+        dataset = load_dataset(
+            "google/xtreme_s", 
+            "fleurs.hi_in", 
+            split="train", 
+            streaming=True, 
+            trust_remote_code=True
+        )
+        
+        # Use datasets.Audio to cast on the fly
+        from datasets import Audio
+        dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
+
+        def prepare_dataset_stream(batch):
+            audio = batch["audio"]["array"]
+            batch["input_features"] = processor.feature_extractor(audio, sampling_rate=16000).input_features[0]
+            batch["labels"] = processor.tokenizer(batch["transcription"]).input_ids
+            return batch
+
         print("\n========================================")
-        print("STEP 4: Extracting Whisper Math Audio Features (This will take a while...)")
+        print("STEP 4: Extracting Whisper Math Audio Features On-The-Fly")
         print("========================================")
-        dataset = dataset.map(lambda x: prepare_dataset(x, processor), remove_columns=dataset.column_names)
-        print("SUCCESS: Complete Audio Dataset perfectly extracted and tokenized!")
+        dataset = dataset.map(prepare_dataset_stream)
+        print("SUCCESS: Live streaming pipeline firmly established!")
+
     except Exception as e:
-        print(f"Warning: Could not load dataset fully. {e}")
-        # Initialize an empty dataset for validation structural checks if missing
-        dataset = Dataset.from_dict({"input_features": [], "labels": []})
+        print(f"Warning: Could not stream dataset. {e}")
+        return
     
     data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor)
     
     training_args = Seq2SeqTrainingArguments(
         output_dir="./lora_whisper_output",
-        per_device_train_batch_size=8, # Utilizing full 24GB RAM
+        per_device_train_batch_size=8,
         gradient_accumulation_steps=2,
         learning_rate=1e-3,
         warmup_steps=500,
-        max_steps=5000, # Massive long-run high-accuracy training
+        max_steps=5000, 
         gradient_checkpointing=True,
-        fp16=False, # CPU doesn't support fp16 training efficiently, keep false
+        fp16=False,
         eval_strategy="no", 
         predict_with_generate=True,
         generation_max_length=225,
         save_steps=500,
         logging_steps=50,
-        report_to=["none"], # Disable wandb/tensorboard for clean run
-        use_cpu=True # Explicitly force CPU
+        report_to=["none"],
+        use_cpu=True
     )
     
     trainer = Seq2SeqTrainer(
@@ -116,15 +133,12 @@ def train():
         processing_class=processor.feature_extractor,
     )
 
-    if len(dataset) > 0:
-        print("\n========================================")
-        print("STEP 5: INITIATING LORA FINE-TUNING LOOP 🔥")
-        print("========================================")
-        print("Trainer is firing up. Hang tight, loss curves are coming...")
-        trainer.train()
-        print("\n🎉 TRAINING COMPLETELY FINISHED! AI Saved to ./lora_whisper_output! 🎉")
-    else:
-        print("\nDataset missing or empty. Skipping AI start.")
+    print("\n========================================")
+    print("STEP 5: INITIATING LORA FINE-TUNING LOOP 🔥")
+    print("========================================")
+    print("Trainer is firing up. Hang tight, loss curves are coming...")
+    trainer.train()
+    print("\n🎉 TRAINING COMPLETELY FINISHED! AI Saved to ./lora_whisper_output! 🎉")
 
 if __name__ == "__main__":
     train()
