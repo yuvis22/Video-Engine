@@ -76,10 +76,10 @@ def train():
     try:
         print("Storage Bypass Enabled: Streaming dataset live to prevent 200GB disk crash...")
         
-        # Stream the dataset directly from HF!
+        # Stream the dataset directly from HF using a natively streamable dataset
         dataset = load_dataset(
-            "google/xtreme_s", 
-            "fleurs.hi_in", 
+            "mozilla-foundation/common_voice_11_0", 
+            "hi", 
             split="train", 
             streaming=True, 
             trust_remote_code=True
@@ -92,7 +92,7 @@ def train():
         def prepare_dataset_stream(batch):
             audio = batch["audio"]["array"]
             batch["input_features"] = processor.feature_extractor(audio, sampling_rate=16000).input_features[0]
-            batch["labels"] = processor.tokenizer(batch["transcription"]).input_ids
+            batch["labels"] = processor.tokenizer(batch["sentence"]).input_ids
             return batch
 
         print("\n========================================")
