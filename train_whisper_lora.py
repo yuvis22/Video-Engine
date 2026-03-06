@@ -76,17 +76,30 @@ def train():
     try:
         print("Storage Bypass Enabled: Streaming dataset live to prevent 200GB disk crash...")
         
-        # Stream the dataset directly from HF using a natively streamable dataset
-        dataset = load_dataset(
+        # Load English Stream
+        dataset_en = load_dataset(
+            "google/fleurs", 
+            "en_us", 
+            split="train", 
+            streaming=True, 
+            trust_remote_code=True
+        )
+
+        # Load Hindi Stream
+        dataset_hi = load_dataset(
             "google/fleurs", 
             "hi_in", 
             split="train", 
             streaming=True, 
             trust_remote_code=True
         )
+
+        # Interleave both streams! 
+        # This alternates 1 English audio clip, then 1 Hindi audio clip endlessly
+        from datasets import interleave_datasets, Audio
+        dataset = interleave_datasets([dataset_en, dataset_hi])
         
         # Use datasets.Audio to cast on the fly
-        from datasets import Audio
         dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
 
         def prepare_dataset_stream(batch):
@@ -98,8 +111,8 @@ def train():
         print("\n========================================")
         print("STEP 4: Extracting Whisper Math Audio Features On-The-Fly")
         print("========================================")
+        print("SUCCESS: Bi-lingual (English + Hindi) Live streaming pipeline firmly established!")
         dataset = dataset.map(prepare_dataset_stream)
-        print("SUCCESS: Live streaming pipeline firmly established!")
 
     except Exception as e:
         print(f"Warning: Could not stream dataset. {e}")
