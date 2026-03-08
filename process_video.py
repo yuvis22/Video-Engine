@@ -2,9 +2,12 @@ import os
 import glob
 import subprocess
 import shutil
-from faster_whisper import WhisperModel
 import datetime
 import imageio_ffmpeg
+import torch
+import librosa
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
+from peft import PeftModel, PeftConfig
 
 def format_timestamp(seconds: float) -> str:
     td = datetime.timedelta(seconds=seconds)
@@ -18,29 +21,78 @@ def format_timestamp(seconds: float) -> str:
 def generate_srt(segments, srt_path):
     with open(srt_path, 'w', encoding='utf-8') as f:
         for idx, segment in enumerate(segments, start=1):
-            start = format_timestamp(segment.start)
-            end = format_timestamp(segment.end)
+            start = format_timestamp(segment["start"])
+            end = format_timestamp(segment["end"])
             f.write(f"{idx}\n")
             f.write(f"{start} --> {end}\n")
-            f.write(f"{segment.text.strip()}\n\n")
+            f.write(f"{segment['text'].strip()}\n\n")
 
 def process_video(input_file: str, output_dir: str):
     print(f"Processing: {input_file}")
     base_name = os.path.basename(input_file)
     name_no_ext, ext = os.path.splitext(base_name)
     
-    # 1. Transcribe
-    print("Loading faster-whisper model (small, int8)...")
-    # Using cpu and int8 as specified
-    model = WhisperModel("small", device="cpu", compute_type="int8")
+    # 1. Transcribe with LoRA Tuning
+    print("Loading Base Whisper Model + Custom LoRA Adapters...")
     
-    print("Transcribing...")
-    # Target: English-Hindi code-switching. We can leave language unset for auto-detection or set to None
-    segments, info = model.transcribe(input_file, beam_size=5)
+    model_id = "openai/whisper-tiny"
+    lora_path = os.path.join(os.path.dirname(__file__), "lora_whisper_output")
     
-    # Needs to be consumed to get segments
-    segments_list = list(segments)
-    print(f"Transcription complete. Detected language: {info.language} with probability {info.language_probability:.2f}")
+    # Load base model & processor
+    processor = WhisperProcessor.from_pretrained(model_id, language="hindi", task="transcribe")
+    base_model = WhisperForConditionalGeneration.from_pretrained(model_id)
+    
+    # Inject our locally trained LoRA weights!
+    if os.path.exists(lora_path):
+        print(f"✅ Found custom LoRA adapter at {lora_path}. Injecting weights...")
+        model = PeftModel.from_pretrained(base_model, lora_path)
+    else:
+        print(f"⚠️ LoRA adapter NOT found at {lora_path}. Falling back to standard Whisper...")
+        model = base_model
+
+    print("Extracting Audio & Transcribing...")
+    
+    # Use librosa to load audio directly from the video file format (ffmpeg backend)
+    audio_array, sampling_rate = librosa.load(input_file, sr=16000)
+    
+    # Generate tokens
+    inputs = processor(audio_array, sampling_rate=16000, return_tensors="pt")
+    
+    with torch.no_grad():
+        generated_tokens = model.generate(
+            **inputs,
+            return_timestamps=True,
+            language="hi",
+            task="transcribe"
+        )
+    
+    # Decode with timestamps
+    transcription = processor.batch_decode(generated_tokens, decode_with_timestamps=True)[0]
+    
+    # We must manually parse the huggingface timestamp tags into segments
+    # Huggingface outputs format like: "<|0.00|> Hello <|2.50|>"
+    import re
+    timestamp_pattern = re.compile(r"<\|(\d+\.\d+)\|>(.*?)<\|(\d+\.\d+)\|>", re.DOTALL)
+    
+    segments_list = []
+    
+    # If the model didn't use strict tag pairs, we will fallback to a single block
+    matches = timestamp_pattern.findall(transcription)
+    if matches:
+        for match in matches:
+            start_time, text, end_time = match
+            segments_list.append({
+                "start": float(start_time),
+                "end": float(end_time),
+                "text": text.strip()
+            })
+    else:
+        # Fallback if timestamps fail
+        clean_text = processor.batch_decode(generated_tokens, skip_special_tokens=True)[0]
+        duration = len(audio_array) / 16000
+        segments_list.append({"start": 0.0, "end": duration, "text": clean_text})
+
+    print(f"Transcription complete. Generated {len(segments_list)} chunks.")
 
     # 2. Generate SRT
     srt_filename = f"{name_no_ext}.srt"
